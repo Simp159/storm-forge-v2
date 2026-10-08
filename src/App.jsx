@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -11,35 +10,43 @@ export default function App(){
   const [err, setErr] = useState(null)
   const [radarOn, setRadarOn] = useState(true)
   const [alertsOn, setAlertsOn] = useState(true)
-  const [goesUrl, setGoesUrl] = useState('/goes-gulf-hero.webp')
-  const [goesTime, setGoesTime] = useState('2026-09-12 02:30Z (fallback)')
+  const [goesUrl, setGoesUrl] = useState(`${import.meta.env.BASE_URL}goes-gulf-hero.webp`)
+  const [goesTime, setGoesTime] = useState('Loading GOES-19...')
   const [alertCount, setAlertCount] = useState(0)
 
-  // LIVE GOES-19 - try to fetch latest CONUS/Gulf
+  // LIVE GOES-19 - FIXED NO FLASH
   useEffect(() => {
+    const fallback = `${import.meta.env.BASE_URL}goes-gulf-hero.webp`
     async function fetchGoes(){
       try {
-        // NOAA CDN - latest Gulf sector Band 13
-        // Use latest file list json
         const now = new Date()
-        // Try NESDIS CDN - this updates every 5 min
-        // Example: https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/13/20262661700_GOES19-ABI-CONUS-13-1000x1000.jpg but we use sector
-        // For live, use GOES-19 Gulf 13 thumb + cache bust
-        const liveUrl = `https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/cgl/13/GOES19-ABI-cgl-13-1000x1000.jpg?t=${Date.now()}`
-        // Test if it loads
+        // No ?t= param - that causes the white flash
+        const liveUrl = `https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/cgl/13/GOES19-ABI-cgl-13-1000x1000.jpg`
         const img = new Image()
+        img.crossOrigin = "anonymous"
         img.onload = () => {
           setGoesUrl(liveUrl)
           setGoesTime(now.toUTCString() + ' • LIVE GOES-19 CGL Band 13')
         }
         img.onerror = () => {
-          // fallback to CONUS
-          setGoesUrl(`https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/13/GOES19-ABI-CONUS-13-1000x1000.jpg?t=${Date.now()}`)
-          setGoesTime(now.toUTCString() + ' • LIVE GOES-19 CONUS Band 13')
+          // try CONUS as second attempt
+          const conusUrl = `https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/13/GOES19-ABI-CONUS-13-1000x1000.jpg`
+          const img2 = new Image()
+          img2.crossOrigin = "anonymous"
+          img2.onload = () => {
+            setGoesUrl(conusUrl)
+            setGoesTime(now.toUTCString() + ' • LIVE GOES-19 CONUS Band 13')
+          }
+          img2.onerror = () => {
+            setGoesUrl(fallback)
+            setGoesTime('Static fallback - NOAA CDN blocked, using hero')
+          }
+          img2.src = conusUrl
         }
         img.src = liveUrl
       } catch(e){
-        setGoesTime('Fallback static 2026-09-12 - live fetch blocked by CORS')
+        setGoesUrl(fallback)
+        setGoesTime('Fallback static 2026-09-12')
       }
     }
     fetchGoes()
@@ -160,8 +167,8 @@ export default function App(){
       <div style={{background:'#0f172a', color:'white', padding:20}}>
         <h2>Map error - but app still works</h2>
         <p>{err}</p>
-        <p>Fix: Set VITE_MAPTILER_KEY in Netlify or leave empty for Carto fallback</p>
-        <img src={goesUrl} style={{width:'100%', marginTop:20}} />
+        <p>Fix: Set VITE_MAPTILER_KEY in GitHub Secrets or leave empty for Carto fallback</p>
+        <img src={goesUrl} style={{width:'100%', marginTop:20}} alt="GOES" />
       </div>
     )
   }
@@ -182,9 +189,20 @@ export default function App(){
       <div style={{position:'relative'}}>
         <div ref={mapDiv} style={{width:'100%', height:'62vh', background:'#0f172a'}} />
         <div style={{position:'absolute', top:12, left:12, width:320, borderRadius:16, overflow:'hidden', border:'1px solid rgba(255,255,255,0.2)', background:'#000'}}>
-          <img src={goesUrl} alt="GOES-19 LIVE" style={{width:'100%', height:180, objectFit:'cover'}} onError={e=>{e.target.src='/goes-gulf-hero.webp'}} />
+          <img 
+            src={goesUrl} 
+            alt="GOES-19 LIVE" 
+            style={{width:'100%', height:180, objectFit:'cover', display:'block'}} 
+            onError={(e)=>{
+              if(!e.target.dataset.fallback){
+                e.target.dataset.fallback='1'
+                e.target.src=`${import.meta.env.BASE_URL}goes-gulf-hero.webp`
+                setGoesTime('Static fallback - live NOAA blocked')
+              }
+            }} 
+          />
           <div style={{padding:8, background:'rgba(0,0,0,0.9)'}}>
-            <div style={{fontSize:10, fontFamily:'monospace', fontWeight:700}}>GOES-19 • ABI • BAND 13 • 10.3μm • IR • LIVE ATTEMPT</div>
+            <div style={{fontSize:10, fontFamily:'monospace', fontWeight:700}}>GOES-19 • ABI • BAND 13 • 10.3μm • IR • LIVE</div>
             <div style={{fontSize:9, fontFamily:'monospace', opacity:0.7}}>{goesTime}</div>
             <div style={{height:6, marginTop:6, background:'linear-gradient(to right, #001f4d, cyan, green, yellow, magenta)', borderRadius:4}}></div>
           </div>
@@ -198,8 +216,8 @@ export default function App(){
           <p style={{fontSize:11, fontFamily:'monospace', marginTop:8, background:'#000', padding:8, borderRadius:8}}>VITE_MAPTILER_KEY = your SuperCellWx key (or leave empty)</p>
         </div>
         <div style={{background:'#1e293b', padding:16, borderRadius:12, border:'1px solid rgba(255,255,255,0.05)'}}>
-          <b>Gulf hero now LIVE</b>
-          <p style={{fontSize:12, opacity:0.7, marginTop:8}}>Tries https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/cgl/13/... and CONUS/13/... with cache bust. If CORS blocks (Netlify sometimes), falls back to your static webp so never blank. Refreshes every 5 min.</p>
+          <b>Gulf hero now LIVE - no flash</b>
+          <p style={{fontSize:12, opacity:0.7, marginTop:8}}>Fixed: removed ?t= cache bust that caused white flash, fixed /goes-gulf-hero.webp path for GitHub Pages BASE_URL, added dataset.fallback guard to stop infinite error loop.</p>
         </div>
         <div style={{background:'#1e293b', padding:16, borderRadius:12, border:'1px solid rgba(255,255,255,0.05)'}}>
           <b>CONUS back</b>
