@@ -1,0 +1,14 @@
+{
+  "name": "Storm Forge V2",
+  "short_name": "StormForge",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/goes-gulf-hero.webp",
+      "sizes": "512x512",
+      "type": "image/webp"
+    }
+  ]
+}
