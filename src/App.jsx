@@ -10,49 +10,7 @@ export default function App(){
   const [err, setErr] = useState(null)
   const [radarOn, setRadarOn] = useState(true)
   const [alertsOn, setAlertsOn] = useState(true)
-  const [goesUrl, setGoesUrl] = useState(`${import.meta.env.BASE_URL}goes-gulf-hero.webp`)
-  const [goesTime, setGoesTime] = useState('Loading GOES-19...')
   const [alertCount, setAlertCount] = useState(0)
-
-  // LIVE GOES-19 - FIXED NO FLASH
-  useEffect(() => {
-    const fallback = `${import.meta.env.BASE_URL}goes-gulf-hero.webp`
-    async function fetchGoes(){
-      try {
-        const now = new Date()
-        // No ?t= param - that causes the white flash
-        const liveUrl = `https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/cgl/13/GOES19-ABI-cgl-13-1000x1000.jpg`
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.onload = () => {
-          setGoesUrl(liveUrl)
-          setGoesTime(now.toUTCString() + ' • LIVE GOES-19 CGL Band 13')
-        }
-        img.onerror = () => {
-          // try CONUS as second attempt
-          const conusUrl = `https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/13/GOES19-ABI-CONUS-13-1000x1000.jpg`
-          const img2 = new Image()
-          img2.crossOrigin = "anonymous"
-          img2.onload = () => {
-            setGoesUrl(conusUrl)
-            setGoesTime(now.toUTCString() + ' • LIVE GOES-19 CONUS Band 13')
-          }
-          img2.onerror = () => {
-            setGoesUrl(fallback)
-            setGoesTime('Static fallback - NOAA CDN blocked, using hero')
-          }
-          img2.src = conusUrl
-        }
-        img.src = liveUrl
-      } catch(e){
-        setGoesUrl(fallback)
-        setGoesTime('Fallback static 2026-09-12')
-      }
-    }
-    fetchGoes()
-    const iv = setInterval(fetchGoes, 5*60*1000)
-    return () => clearInterval(iv)
-  }, [])
 
   useEffect(() => {
     try {
@@ -68,7 +26,7 @@ export default function App(){
               type: 'raster',
               tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
               tileSize: 256,
-              attribution: '© Carto • OpenStreetMap • No MapTiler key needed'
+              attribution: '© Carto • OpenStreetMap'
             }
           },
           layers: [{id:'carto-dark', type:'raster', source:'carto-dark'}]
@@ -83,7 +41,7 @@ export default function App(){
       mapRef.current = map
 
       map.on('load', async () => {
-        // IEM NEXRAD N0R - NO RainViewer
+        // IEM NEXRAD N0R
         map.addSource('iem', {
           type:'raster',
           tiles:['https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0r-900913/{z}/{x}/{y}.png'],
@@ -143,7 +101,7 @@ export default function App(){
 
       map.on('error', (e) => {
         console.error('Map error', e)
-        setErr(e.error?.message || 'Map load error - check MapTiler key')
+        setErr(e.error?.message || 'Map load error')
       })
 
     } catch(e){
@@ -165,64 +123,27 @@ export default function App(){
   if (err) {
     return (
       <div style={{background:'#0f172a', color:'white', padding:20}}>
-        <h2>Map error - but app still works</h2>
+        <h2>Map error</h2>
         <p>{err}</p>
-        <p>Fix: Set VITE_MAPTILER_KEY in GitHub Secrets or leave empty for Carto fallback</p>
-        <img src={goesUrl} style={{width:'100%', marginTop:20}} alt="GOES" />
       </div>
     )
   }
 
   return (
-    <div style={{background:'#0f172a', minHeight:'100vh', color:'#e2e8f0'}}>
+    <div style={{background:'#0f172a', minHeight:'100vh', color:'#e2e8f0', display:'flex', flexDirection:'column'}}>
       <div style={{padding:'12px 16px', borderBottom:'1px solid rgba(255,255,255,0.1)', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8}}>
         <div>
           <div style={{fontWeight:900, fontSize:20, letterSpacing:-1}}>STORM FORGE V2 • LIVE</div>
-          <div style={{fontFamily:'monospace', fontSize:10, opacity:0.6}}>MapTiler fallback + IEM N0R + NWS Polygons {alertCount} + Hazcams 15 + Chasers • No RainViewer • No blue screen</div>
+          <div style={{fontFamily:'monospace', fontSize:10, opacity:0.6}}>IEM N0R + NWS Polygons {alertCount} + Hazcams 15 + Chasers</div>
         </div>
         <div style={{display:'flex', gap:8}}>
-          <button onClick={()=>setRadarOn(!radarOn)} style={{padding:'6px 12px', borderRadius:999, fontWeight:900, fontSize:11, background:radarOn?'#22d3ee':'#1e293b', color:radarOn?'#000':'#fff', border:'1px solid rgba(255,255,255,0.1)'}}>{radarOn?'RADAR ON':'RADAR OFF'}</button>
-          <button onClick={()=>setAlertsOn(!alertsOn)} style={{padding:'6px 12px', borderRadius:999, fontWeight:900, fontSize:11, background:alertsOn?'#ef4444':'#1e293b', color:'#fff', border:'1px solid rgba(255,255,255,0.1)'}}>ALERTS {alertCount}</button>
+          <button onClick={()=>setRadarOn(!radarOn)} style={{padding:'6px 12px', borderRadius:999, fontWeight:900, fontSize:11, background:radarOn?'#22d3ee':'#1e293b', color:radarOn?'#000':'#fff', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer'}}>{radarOn?'RADAR ON':'RADAR OFF'}</button>
+          <button onClick={()=>setAlertsOn(!alertsOn)} style={{padding:'6px 12px', borderRadius:999, fontWeight:900, fontSize:11, background:alertsOn?'#ef4444':'#1e293b', color:'#fff', border:'1px solid rgba(255,255,255,0.1)', cursor:'pointer'}}>ALERTS {alertCount}</button>
         </div>
       </div>
 
-      <div style={{position:'relative'}}>
-        <div ref={mapDiv} style={{width:'100%', height:'62vh', background:'#0f172a'}} />
-        <div style={{position:'absolute', top:12, left:12, width:320, borderRadius:16, overflow:'hidden', border:'1px solid rgba(255,255,255,0.2)', background:'#000'}}>
-          <img 
-            src={goesUrl} 
-            alt="GOES-19 LIVE" 
-            style={{width:'100%', height:180, objectFit:'cover', display:'block'}} 
-            onError={(e)=>{
-              if(!e.target.dataset.fallback){
-                e.target.dataset.fallback='1'
-                e.target.src=`${import.meta.env.BASE_URL}goes-gulf-hero.webp`
-                setGoesTime('Static fallback - live NOAA blocked')
-              }
-            }} 
-          />
-          <div style={{padding:8, background:'rgba(0,0,0,0.9)'}}>
-            <div style={{fontSize:10, fontFamily:'monospace', fontWeight:700}}>GOES-19 • ABI • BAND 13 • 10.3μm • IR • LIVE</div>
-            <div style={{fontSize:9, fontFamily:'monospace', opacity:0.7}}>{goesTime}</div>
-            <div style={{height:6, marginTop:6, background:'linear-gradient(to right, #001f4d, cyan, green, yellow, magenta)', borderRadius:4}}></div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{padding:16, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:16}}>
-        <div style={{background:'#1e293b', padding:16, borderRadius:12, border:'1px solid rgba(255,255,255,0.05)'}}>
-          <b>Blue screen fixed</b>
-          <p style={{fontSize:12, opacity:0.7, marginTop:8}}>Added error boundary. If MapTiler key missing or invalid, falls back to Carto dark raster (no key needed). Map will ALWAYS show CONUS + IEM. Check console for map error.</p>
-          <p style={{fontSize:11, fontFamily:'monospace', marginTop:8, background:'#000', padding:8, borderRadius:8}}>VITE_MAPTILER_KEY = your SuperCellWx key (or leave empty)</p>
-        </div>
-        <div style={{background:'#1e293b', padding:16, borderRadius:12, border:'1px solid rgba(255,255,255,0.05)'}}>
-          <b>Gulf hero now LIVE - no flash</b>
-          <p style={{fontSize:12, opacity:0.7, marginTop:8}}>Fixed: removed ?t= cache bust that caused white flash, fixed /goes-gulf-hero.webp path for GitHub Pages BASE_URL, added dataset.fallback guard to stop infinite error loop.</p>
-        </div>
-        <div style={{background:'#1e293b', padding:16, borderRadius:12, border:'1px solid rgba(255,255,255,0.05)'}}>
-          <b>CONUS back</b>
-          <p style={{fontSize:12, opacity:0.7, marginTop:8}}>Center -95,36 zoom 4.2 shows full CONUS + Gulf. IEM N0R covers whole US. NWS polygons {alertCount} live. Hazcams cyan 15 states. Chasers magenta.</p>
-        </div>
+      <div style={{flex:1, position:'relative'}}>
+        <div ref={mapDiv} style={{width:'100%', height:'calc(100vh - 58px)', background:'#0f172a'}} />
       </div>
     </div>
   )
